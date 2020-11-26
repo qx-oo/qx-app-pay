@@ -2,19 +2,28 @@ from django.db import models
 from django.utils import timezone
 
 
+PAY_PLATFORM = [
+    ('apple_store', 'Apple Store',),
+]
+
+
 class AppProduct(models.Model):
 
     identifier = models.CharField(
         verbose_name="Product Identifier", max_length=250)
+    name = models.CharField(
+        verbose_name="Product Name", max_length=255)
     desc = models.CharField(
-        verbose_name="商品描述", max_length=255)
+        verbose_name="Desc", max_length=255)
     price = models.DecimalField(
         verbose_name="Price",
         max_digits=8, decimal_places=2,
         default=0,
     )
     category = models.CharField(
-        verbose_name="分类", max_length=50)
+        verbose_name="Platform", max_length=32,
+        choices=PAY_PLATFORM
+    )
 
     class Meta:
         verbose_name = "AppProduct"
@@ -31,12 +40,10 @@ class AppReceipt(models.Model):
         verbose_name="Detail")
     category = models.CharField(
         verbose_name="Platform", max_length=32,
-        choices=[
-            ('apple_store', 'Apple Store',),
-        ]
+        choices=PAY_PLATFORM
     )
-    product_id = models.CharField(
-        verbose_name="product id")
+    product_id = models.IntegerField(
+        verbose_name="Product id")
     created = models.DateTimeField(
         verbose_name='Created', default=timezone.now, editable=False)
 
@@ -69,10 +76,12 @@ class PayOrder(models.Model):
         max_digits=8, decimal_places=2,
         default=0,
     )
-    currency = models.CharField(max_lenght=10)
-
+    currency = models.CharField(
+        verbose_name='Currency', max_lenght=10)
     extra_info = models.JSONField(
         verbose_name="Extra Info", default=dict)
+    payment_id = models.IntegerField(
+        verbose_name="Payment id")
 
     class Meta:
         verbose_name = "PayOrder"
