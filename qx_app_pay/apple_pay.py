@@ -81,10 +81,11 @@ class ApplePay():
         return: status, bid, product_id, purchase_date_ms
         """
         if self.password != data.get('password'):
-            return False, None, None, None
-        if receipt_info := data.get('latest_expired_receipt_info'):
+            return False, None
+        if receipt_info := data.get('latest_receipt_info'):
             bid = receipt_info['bid']
             product_id = receipt_info['product_id']
             purchase_date_ms = receipt_info['purchase_date_ms']
-            return True, bid, product_id, purchase_date_ms
-        return False, None, None, None
+            transaction_id = receipt_info['original_transaction_id']
+            return True, (bid, product_id, purchase_date_ms, transaction_id)
+        return False, None

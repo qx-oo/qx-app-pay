@@ -10,7 +10,7 @@ PAY_PLATFORM = [
 
 class AppProduct(models.Model):
 
-    identifier = models.CharField(
+    product_id = models.CharField(
         verbose_name="Product Identifier", max_length=250)
     name = models.CharField(
         verbose_name="Product Name", max_length=255)
@@ -42,42 +42,47 @@ class AppReceipt(models.Model):
         verbose_name="Base64 Query Receipt", null=True)
     detail = models.JSONField(
         verbose_name="Detail")
-    product = models.ForeignKey(
-        AppProduct, verbose_name="Product", on_delete=models.PROTECT)
     created = models.DateTimeField(
         verbose_name='Created', default=timezone.now, editable=False)
     last_update_time = models.DateTimeField(
         verbose_name='Last Update Time', default=timezone.now)
     last_subscription_info = models.JSONField(
         verbose_name="Subscription Info", default=dict)
+    category = models.CharField(
+        verbose_name="Platform", max_length=32,
+        choices=PAY_PLATFORM
+    )
 
     @classmethod
-    def save_payment(cls, bundle_id, user_id: int, receipt: dict,
+    def save_payment(cls, category, user_id: int, receipt: dict,
                      object_type: str, object_id=None):
         """
         Save Receipt And Create Order
         """
         AppOrder = apps.get_model('qx_app_pay.AppOrder')
         with transaction.atomic():
-            product = AppProduct.objects.get(identifier=bundle_id)
-            if product.category == 'apple_store':
+            if category == 'apple_store':
                 b64receipt = receipt['latest_receipt']
                 instance, created = cls.objects.get_or_create(
-                    user_id=user_id, product=product,
+                    user_id=user_id, category=category,
                     defaults={'b64_receipt': b64receipt, 'detail': receipt}
                 )
-                if not created:
-                    instance.b64_receipt = b64receipt
-                    instance.detail = receipt
-                    instance.save()
                 order_list = {}
                 receipt_list = list(receipt['latest_receipt_info'])
                 receipt_list.extend(receipt['receipt']['in_app'])
+                latest_time = None
                 for item in receipt_list:
-                    order_no, receipt, price, pay_ts = instance.get_order_info(
-                        bundle_id, item)
+                    product = AppProduct.objects.filter(
+                        product_id=item['product_id']).first()
+                    if not product:
+                        continue
+                    order_no, receipt, price, pay_ts, related_id = \
+                        instance.get_order_info(product, user_id, item)
                     pay_time = timezone.datetime.fromtimestamp(pay_ts)
+                    if not latest_time or latest_time < pay_time:
+                        latest_time = pay_time
                     order_list[order_no] = {
+                        "product": product,
                         "order_no": order_no,
                         "user_id": user_id,
                         "currency": product.currency,
@@ -89,7 +94,14 @@ class AppReceipt(models.Model):
                         "object_type": object_type,
                         "extra_info": item,
                         "pay_time": pay_time,
+                        "related_id": related_id,
                     }
+                if not created:
+                    instance.b64_receipt = b64receipt
+                    instance.detail = receipt
+                    if latest_time:
+                        instance.last_update_time = latest_time
+                    instance.save()
                 _exists = AppOrder.objects.filter(order_no__in=list(
                     order_list.keys())).values_list('order_no', flat=True)
                 orders = [order for no, order in order_list.items()
@@ -99,26 +111,27 @@ class AppReceipt(models.Model):
                 raise TypeError
 
     @classmethod
-    def get_order_no(cls, bundle_id, product_id, purchase_date_ms):
+    def get_apple_order_no(cls, bid, product_id, purchase_date_ms,
+                           user_id):
         purchase_date_ts = purchase_date_ms // 1000
-        return "{}-{}-{}".format(
-            bundle_id, product_id, purchase_date_ts)
+        return "apple-{}-{}-{}-{}".format(
+            bid, product_id, purchase_date_ts, user_id)
 
-    def get_order_info(self, bundle_id, receipt: dict) -> (str, dict, float):
+    def get_order_info(self, product, user_id, receipt: dict) -> \
+            (str, dict, float, str):
         """
         Get receipt's order info
         """
-        price = self.product.price
-        if self.product.category == 'apple_store':
+        price = product.price
+        if self.category == 'apple_store':
             purchase_date_ts = int(receipt['purchase_date_ms']) // 1000
-            product_id = receipt['product_id']
-            order_no = self.get_order_no(
-                bundle_id, receipt['product_id'], receipt['purchase_date_ms'])
-            order_no = "{}-{}-{}".format(
-                bundle_id, product_id, purchase_date_ts)
+            order_no = self.get_apple_order_no(
+                receipt['bid'], receipt['product_id'],
+                receipt['purchase_date_ms'], user_id)
         else:
             raise TypeError
-        return order_no, receipt, price, purchase_date_ts
+        return order_no, receipt, price, purchase_date_ts, \
+            receipt['original_transaction_id']
 
     class Meta:
         verbose_name = "AppReceipt"
@@ -128,6 +141,8 @@ class AppReceipt(models.Model):
 
 class AppOrder(models.Model):
 
+    product = models.ForeignKey(
+        AppProduct, verbose_name="Product", on_delete=models.PROTECT)
     order_no = models.CharField(
         verbose_name='App Order Unique Id', unique=True, max_length=250)
     user_id = models.IntegerField(
@@ -138,10 +153,6 @@ class AppOrder(models.Model):
         verbose_name="Object Type", max_length=50)
     created = models.DateTimeField(
         verbose_name='Created', default=timezone.now, editable=False)
-    category = models.CharField(
-        verbose_name="Platform", max_length=32,
-        choices=PAY_PLATFORM,
-    )
     pay_time = models.DateTimeField(
         verbose_name="Pay Time")
     amount = models.DecimalField(
@@ -163,6 +174,9 @@ class AppOrder(models.Model):
     )
     refund = models.BooleanField(
         verbose_name="Is Refund", default=False)
+    related_id = models.CharField(
+        verbose_name="Related Id(Original transaction id)", null=True,
+        default=None, max_length=100)
 
     class Meta:
         verbose_name = "AppOrder"
