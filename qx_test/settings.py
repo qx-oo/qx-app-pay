@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'qx_test.members',
     'qx_app_pay',
 ]
 
@@ -76,12 +77,8 @@ WSGI_APPLICATION = 'qx_test.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'qx_test',
-        'USER': 'postgres',
-        'PASSWORD': '1234',
-        'HOST': '127.0.0.1',
-        'PORT': '5432',
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     }
 }
 
@@ -124,38 +121,16 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
-# RestFramework
-REST_FRAMEWORK = {
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
-    ],
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'qx_base.qx_user.auth.JwtAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
-    ),
-    'DEFAULT_PARSER_CLASSES': [
-        'rest_framework.parsers.JSONParser',
-    ],
-    'DEFAULT_PAGINATION_CLASS':
-        'qx_base.qx_rest.paginations.Pagination',
-    'DEFAULT_FILTER_BACKENDS': (
-        'rest_framework.filters.OrderingFilter',
-        'rest_framework.filters.SearchFilter',
-    ),
-    'EXCEPTION_HANDLER': 'qx_base.qx_rest.handlers.rest_exception_handler',
-    'PAGE_SIZE': 15,
-}
-
-REDIS_HOST = "127.0.0.1"
-REDIS_PORT = 6379
-REDIS_PASSWORD = ""
-REDIS_URL = "redis://:{}@{}:{}".format(
-    REDIS_PASSWORD,
-    REDIS_HOST,
-    REDIS_PORT)
-
 # AUTH_USER_MODEL = 'user.User'
 
 JWT_TOKEN_KEYWORD = 'token'
 
 PRODUCTION = True
+
+
+QX_APP_PAY_SETTINGS = {
+    "APPLE_PAY": {
+        "PASSWORD": '',
+    },
+    "RECEIPT_ORDER_OBJECT_CALLBACK": "qx_test.members.utils.receipt_order_object_callback",  # noqa
+}

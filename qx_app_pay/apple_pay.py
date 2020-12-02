@@ -1,5 +1,6 @@
 import logging
 import requests
+import json
 from .settings import app_pay_settings
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,7 @@ class ApplePay():
     def request(self, method, resource, params) -> (dict, str):
         url = self.url.format(resource)
         sanbox_url = self.sanbox_url.format(resource)
+        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
         try:
             if method.upper() == 'GET':
                 resp = requests.request(
@@ -50,11 +52,14 @@ class ApplePay():
                     resp = requests.request(
                         method, sanbox_url, params=params, timeout=60).json()
             else:
+                data = json.dumps(params)
                 resp = requests.request(
-                    method, url, json=params, timeout=60).json()
+                    method, url, data=data, headers=headers,
+                    timeout=60).json()
                 if resp.get("status") in [21007, 21008]:
                     resp = requests.request(
-                        method, sanbox_url, json=params, timeout=60).json()
+                        method, sanbox_url, data=data, headers=headers,
+                        timeout=60).json()
             return resp, 'success'
         except Exception:
             return None, 'Http Error'

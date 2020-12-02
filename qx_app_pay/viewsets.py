@@ -1,3 +1,4 @@
+import logging
 from rest_framework.permissions import (
     AllowAny, IsAuthenticated,
 )
@@ -6,6 +7,11 @@ from django.http import JsonResponse
 from rest_framework.decorators import api_view, permission_classes
 from .apple_pay import ApplePay
 from .models import AppReceipt, AppOrder
+from .serializers import AppleSubscription
+from .settings import app_pay_settings
+
+
+logger = logging.getLogger(__name__)
 
 
 @api_view(['POST'])
@@ -20,15 +26,13 @@ def apple_notifications(request) -> JsonResponse:
     status, ret = ApplePay().parse_subscription(data)
     if status:
         bid, product_id, purchase_date_ms, transaction_id = ret
-        # order_no = AppReceipt.get_apple_order_no(
-        #     bid, product_id, purchase_date_ms, '')
         order = AppOrder.objects.filter(
             related_id=transaction_id, category='apple_store').first()
         if order and order.payment_type == 'appreceipt':
             payment = AppReceipt.objects.filter(id=order.payment_id).first()
             payment.last_subscription_info = data
             last_update_time = timezone.datetime.fromtimestamp(
-                int(purchase_date_ms) // 1000)
+                int(purchase_date_ms) // 1000, tz=timezone.utc)
             payment.last_update_time = last_update_time
     return JsonResponse(data={}, status=200)
 
@@ -37,5 +41,37 @@ def apple_notifications(request) -> JsonResponse:
 @permission_classes((IsAuthenticated,))
 def apple_subscription(request):
     """
+    Apple Store Subscription
+
+    request: {"b64_receipt": "..."}
     """
-    pass
+    serializer = AppleSubscription(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    req_data = serializer.data
+    try:
+        status, data = ApplePay().validate_receipt(req_data['b64_receipt'])
+        if status != 0:
+            return JsonResponse(data={
+                "code": 4000,
+                "msg": [data],
+            }, status=200)
+    except Exception:
+        logger.error("apple_subscription")
+        return JsonResponse(data={
+            "code": 4014,
+            "msg": ["Verify Fail"],
+        }, status=200)
+    try:
+        AppReceipt.save_payment(
+            'apple_store', request.user.id, data,
+            app_pay_settings['RECEIPT_ORDER_OBJECT_CALLBACK'])
+    except Exception:
+        return JsonResponse(data={
+            "code": 4000,
+            "msg": ["Save Fail"],
+        }, status=200)
+    return JsonResponse(data={
+        "code": 200,
+        "msg": ["success"],
+        "data": {},
+    }, status=200)
