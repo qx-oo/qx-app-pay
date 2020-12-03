@@ -9,7 +9,7 @@ setup(
     url='https://github.com/qx-oo/qx-app-pay/',
     description='Django app pay.',
     long_description=open("README.md").read(),
-    packages=find_packages(exclude=["qx_test"]),
+    packages=find_packages(include=["qx_app_pay", "qx_vip"]),
     install_requires=[
         'requests>=2.24',
         'cryptography>=2.9',

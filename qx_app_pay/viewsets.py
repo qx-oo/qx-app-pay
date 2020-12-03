@@ -4,6 +4,7 @@ from rest_framework.permissions import (
 )
 from django.utils import timezone
 from django.http import JsonResponse
+from django.utils.module_loading import import_string
 from rest_framework.decorators import api_view, permission_classes
 from .apple_pay import ApplePay
 from .models import AppReceipt, AppOrder
@@ -12,6 +13,9 @@ from .settings import app_pay_settings
 
 
 logger = logging.getLogger(__name__)
+
+RECEIPT_ORDERS_CALLBACK = import_string(
+    app_pay_settings['RECEIPT_ORDERS_CALLBACK'])
 
 
 @api_view(['POST'])
@@ -64,8 +68,9 @@ def apple_subscription(request):
     try:
         AppReceipt.save_payment(
             'apple_store', request.user.id, data,
-            app_pay_settings['RECEIPT_ORDER_OBJECT_CALLBACK'])
+            RECEIPT_ORDERS_CALLBACK)
     except Exception:
+        logger.error("apple_save_payment")
         return JsonResponse(data={
             "code": 4000,
             "msg": ["Save Fail"],

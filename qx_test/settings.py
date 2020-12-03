@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'qx_test.members',
     'qx_app_pay',
+    'qx_vip',
 ]
 
 MIDDLEWARE = [
@@ -130,7 +131,8 @@ PRODUCTION = True
 
 QX_APP_PAY_SETTINGS = {
     "APPLE_PAY": {
-        "PASSWORD": '',
+        "PASSWORD": '...',
     },
-    "RECEIPT_ORDER_OBJECT_CALLBACK": "qx_test.members.utils.receipt_order_object_callback",  # noqa
+    "RECEIPT_ORDERS_CALLBACK": "qx_test.members.utils.orders_callback",  # noqa
+    "APPLE_VIP_PRODUCT_ID": "cn....",
 }

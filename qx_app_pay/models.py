@@ -1,5 +1,4 @@
 import logging
-from decimal import Decimal
 from django.db import models, transaction
 from django.utils import timezone
 from django.apps import apps
@@ -67,41 +66,44 @@ class AppReceipt(models.Model):
 
     @classmethod
     def save_payment(cls, category, user_id: int, receipt: dict,
-                     object_callback=None):
+                     orders_callback=None):
         """
         Save Receipt And Create Order
-        object_callback:
-            object_callback(order) -> object_type, object_id
+        orders_callback:
+            orders_callback(user_id: int, orders: [], renew_status: {}) -> bool
         """  # noqa
         AppOrder = apps.get_model('qx_app_pay.AppOrder')
         with transaction.atomic():
             if category == 'apple_store':
-                instance, order_list = cls.apple_save_payment(
-                    category, user_id, receipt, object_callback)
+                payment_type = 'appreceipt'
+                instance, order_list, renew_status = cls.apple_save_payment(
+                    category, user_id, receipt, payment_type)
             else:
                 raise TypeError
             _exists = AppOrder.objects.filter(order_no__in=list(
                 order_list.keys())).values_list('order_no', flat=True)
             orders = [AppOrder(**order) for no, order in order_list.items()
                       if no not in _exists]
-            _orders = AppOrder.objects.bulk_create(orders)
-        for order in _orders:
-            try:
-                object_type, object_id = object_callback(order)
-                order.object_type = object_type
-                order.object_id = object_id
-                order.save()
-            except Exception:
-                logger.exception('app pay object_callback')
+            AppOrder.objects.bulk_create(orders)
+        try:
+            _orders = list(AppOrder.objects.filter(
+                order_no__in=[order.order_no for order in orders]))
+            orders_callback(user_id, _orders, renew_status)
+        except Exception:
+            logger.exception('app pay object_callback')
 
     @classmethod
-    def apple_save_payment(cls, category, user_id, receipt,
-                           object_callback=None):
+    def apple_save_payment(cls, category, user_id, receipt, payment_type):
         """
-        object_callback:
-            object_callback(order_info) -> object_type, object_id
+        Parse receipt and return order list
         """  # noqa
         b64receipt = receipt['latest_receipt']
+        renew_status = receipt['pending_renewal_info']
+        renew_status = {
+            item['auto_renew_product_id']: True if int(
+                item['auto_renew_status']) else False
+            for item in renew_status
+        }
         instance, created = cls.objects.get_or_create(
             user_id=user_id, category=category,
             defaults={'b64_receipt': b64receipt, 'detail': receipt}
@@ -123,24 +125,17 @@ class AppReceipt(models.Model):
             order_list[order_info['order_no']] = {
                 "user_id": user_id,
                 "payment_id": instance.id,
-                "payment_type": "appreceipt",
+                "payment_type": payment_type,
             }
             order_list[order_info['order_no']].update(order_info)
             order_list[order_info['order_no']]['extra_info']['receipt'] = item
 
-            if object_callback:
-                object_type, object_id = object_callback(
-                    order_info['order_no'])
-                order_list[order_info['order_no']].update({
-                    "object_id": object_id,
-                    "object_type": object_type,
-                })
         instance.b64_receipt = receipt['latest_receipt']
         instance.detail = receipt
         if latest_time:
             instance.last_update_time = latest_time
         instance.save()
-        return instance, order_list
+        return instance, order_list, renew_status
 
     @classmethod
     def get_apple_order_no(cls, bid, product_id, purchase_date_ms,
@@ -154,7 +149,6 @@ class AppReceipt(models.Model):
         """
         Get receipt's order info
         """
-        is_free = False
         if self.category == 'apple_store':
             purchase_date_ts = int(receipt['purchase_date_ms']) // 1000
             pay_time = timezone.datetime.fromtimestamp(
@@ -168,8 +162,8 @@ class AppReceipt(models.Model):
                 receipt['purchase_date_ms'], user_id)
             quantity = int(receipt['quantity'])
             related_id = receipt['original_transaction_id']
-            is_free = bool(receipt['is_trial_period'])
-            amount = 0 if is_free else product.price * quantity
+            is_trial = bool(receipt['is_trial_period'])
+            amount = 0 if is_trial else product.price * quantity
             if bool(receipt['is_in_intro_offer_period']) and product.discount:
                 amount = amount * product.discount / 10
         else:
@@ -183,9 +177,11 @@ class AppReceipt(models.Model):
             'pay_time': pay_time,
             'currency': product.currency,
             'extra_info': {
+                'type': 'subscription',
                 'price': str(product.price),
                 'discount': product.discount,
                 'expires_date': expires_date.strftime("%Y-%m-%d"),
+                'is_trial': is_trial,
             }
         }
 
@@ -205,10 +201,6 @@ class AppOrder(models.Model):
         verbose_name='App Order Unique Id', unique=True, max_length=250)
     user_id = models.IntegerField(
         verbose_name="User Id", db_index=True)
-    object_id = models.IntegerField(
-        verbose_name="Ojbect Id", null=True, blank=True, default=None)
-    object_type = models.CharField(
-        verbose_name="Object Type", max_length=50, default='')
     created = models.DateTimeField(
         verbose_name='Created', default=timezone.now, editable=False)
     pay_time = models.DateTimeField(

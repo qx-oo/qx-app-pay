@@ -1,4 +1,5 @@
+from qx_test.members.models import UserInfo
 
 
-def receipt_order_object_callback(order):
-    return 'vip', 1
+def orders_callback(*args, **kwargs):
+    return UserInfo.orders_callback(*args, **kwargs)
