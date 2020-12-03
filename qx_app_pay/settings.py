@@ -6,9 +6,12 @@ QX_APP_PAY_SETTINGS = {
         "PASSWORD": None,
     },
     "RECEIPT_ORDERS_CALLBACK": None,
+    "NOTIFICATION_CALLBACK": None,
     "APPLE_VIP_PRODUCT_ID": None,
 }
 
-app_pay_settings = getattr(
+QX_APP_PAY_SETTINGS.update(getattr(
     settings, 'QX_APP_PAY_SETTINGS',
-    QX_APP_PAY_SETTINGS)
+    QX_APP_PAY_SETTINGS))
+
+app_pay_settings = QX_APP_PAY_SETTINGS

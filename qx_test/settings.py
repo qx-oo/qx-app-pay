@@ -133,6 +133,7 @@ QX_APP_PAY_SETTINGS = {
     "APPLE_PAY": {
         "PASSWORD": '...',
     },
-    "RECEIPT_ORDERS_CALLBACK": "qx_test.members.utils.orders_callback",  # noqa
+    "RECEIPT_ORDERS_CALLBACK": "qx_test.members.utils.orders_callback",
+    "NOTIFICATION_CALLBACK": "qx_test.members.utils.notification_callback",
     "APPLE_VIP_PRODUCT_ID": "cn....",
 }

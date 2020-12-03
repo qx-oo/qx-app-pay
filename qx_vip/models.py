@@ -69,6 +69,15 @@ class VipUserInfo(models.Model):
         userinfo.save()
         return True
 
+    @classmethod
+    def notification_callback(cls, user_id, data):
+        userinfo = cls.objects.filter(user_id=user_id).first()
+        if userinfo:
+            if userinfo.apple_auto_renew != data['auto_renew']:
+                userinfo.apple_auto_renew = data['auto_renew']
+                userinfo.save()
+        return True
+
     class Meta:
         abstract = True
         verbose_name = 'UserInfo'

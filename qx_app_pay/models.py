@@ -86,9 +86,10 @@ class AppReceipt(models.Model):
                       if no not in _exists]
             AppOrder.objects.bulk_create(orders)
         try:
-            _orders = list(AppOrder.objects.filter(
-                order_no__in=[order.order_no for order in orders]))
-            orders_callback(user_id, _orders, renew_status)
+            if orders:
+                _orders = list(AppOrder.objects.filter(
+                    order_no__in=[order.order_no for order in orders]))
+                orders_callback(user_id, _orders, renew_status)
         except Exception:
             logger.exception('app pay object_callback')
 

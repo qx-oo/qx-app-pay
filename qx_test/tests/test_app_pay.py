@@ -1,7 +1,9 @@
 import pytest
+from django.utils import timezone
 from django.contrib.auth.models import User
 from qx_app_pay.models import AppProduct, AppOrder
 from qx_test.members.models import UserInfo
+from qx_test.members.tasks import MyUpdateVipReceiptTask
 
 
 class TestViewsets:
@@ -43,3 +45,8 @@ class TestViewsets:
         _ = userinfo.is_vip()
         assert userinfo.vip_expire_date
         assert len(userinfo.vip_order['used_ids']) > 0
+
+        userinfo.vip_expire_date = timezone.localtime(timezone.now()).date()
+        userinfo.save()
+        MyUpdateVipReceiptTask().run(_type=1)
+        print('test')

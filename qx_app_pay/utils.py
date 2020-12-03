@@ -1,0 +1,67 @@
+import logging
+from django.utils import timezone
+from django.utils.module_loading import import_string
+from .settings import app_pay_settings
+from .apple_pay import ApplePay
+from .models import AppReceipt, AppOrder
+
+
+logger = logging.getLogger(__name__)
+
+
+RECEIPT_ORDERS_CALLBACK = import_string(
+    app_pay_settings['RECEIPT_ORDERS_CALLBACK'])
+NOTIFICATION_CALLBACK = import_string(
+    app_pay_settings['NOTIFICATION_CALLBACK'])
+
+
+class VerifyException(Exception):
+    pass
+
+
+class PaymentException(Exception):
+    pass
+
+
+def apple_subscription_update(b64_receipt, user_id) -> (bool, str):
+    """
+    update apple subscription status
+    RECEIPT_ORDERS_CALLBACK(user_id: int, orders: [], renew_status: {}) -> bool
+    return: status, msg
+    """
+    try:
+        status, data = ApplePay().validate_receipt(b64_receipt)
+        if status != 0:
+            return False, data
+    except Exception:
+        logger.exception("apple_verify_receipt")
+        raise VerifyException
+    try:
+        AppReceipt.save_payment(
+            'apple_store', user_id, data,
+            RECEIPT_ORDERS_CALLBACK)
+    except Exception:
+        logger.exception("apple_save_payment")
+        raise PaymentException
+    return True, ''
+
+
+def apple_subscription_notification(data):
+    """
+    NOTIFICATION_CALLBACK(user_id, data)
+    """
+
+    status, ret = ApplePay().parse_subscription(data)
+    if status:
+        # bid, product_id, purchase_date_ms, transaction_id = ret
+        order = AppOrder.objects.filter(
+            related_id=ret['transaction_id'], category='apple_store').first()
+        if order and order.payment_type == 'appreceipt':
+            payment = AppReceipt.objects.filter(
+                id=order.payment_id, user_id=order.user_id).first()
+            payment.last_subscription_info = data
+            last_update_time = timezone.datetime.fromtimestamp(
+                int(ret['purchase_date_ms']) // 1000, tz=timezone.utc)
+            payment.last_update_time = last_update_time
+
+            NOTIFICATION_CALLBACK(order.user_id, ret)

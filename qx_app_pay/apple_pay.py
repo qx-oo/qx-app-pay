@@ -87,10 +87,24 @@ class ApplePay():
         """
         if self.password != data.get('password'):
             return False, None
+        auto_renew = data.get('auto_renew_status')
+        if auto_renew is not None:
+            auto_renew = bool(auto_renew)
+        data = {
+            "receipt_info": {},
+            "prodcut_id": data.get('auto_renew_product_id', ''),
+            "notification_type": data.get('notification_type', ''),
+            "auto_renew": auto_renew,
+        }
         if receipt_info := data.get('latest_receipt_info'):
             bid = receipt_info['bid']
             product_id = receipt_info['product_id']
             purchase_date_ms = receipt_info['purchase_date_ms']
             transaction_id = receipt_info['original_transaction_id']
-            return True, (bid, product_id, purchase_date_ms, transaction_id)
-        return False, None
+            data['receipt_info'] = {
+                'bid': bid,
+                'product_id': product_id,
+                'purchase_date_ms': purchase_date_ms,
+                'transaction_id': transaction_id,
+            }
+        return False, data
