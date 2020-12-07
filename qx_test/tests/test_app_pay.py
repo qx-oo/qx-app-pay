@@ -3,7 +3,7 @@ from django.utils import timezone
 from django.contrib.auth.models import User
 from qx_app_pay.models import AppProduct, AppOrder
 from qx_test.members.models import UserInfo
-from qx_test.members.tasks import MyUpdateVipReceiptTask
+from qx_test.members.tasks import MyUpdateVipReceiptTask, MyConsumeDaysVipTask
 
 
 class TestViewsets:
@@ -50,3 +50,9 @@ class TestViewsets:
         userinfo.save()
         MyUpdateVipReceiptTask().run(_type=1)
         print('test')
+
+        UserInfo.objects.filter(user_id=user.id).update(available_days=2)
+        MyConsumeDaysVipTask().run()
+        MyConsumeDaysVipTask().run()
+        userinfo = UserInfo.objects.get(user_id=user.id)
+        assert userinfo.available_days == 1

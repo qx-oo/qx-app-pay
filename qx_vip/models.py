@@ -44,6 +44,7 @@ class VipUserInfo(models.Model):
         if not userinfo:
             return False
         used_ids = userinfo.vip_order.get('used_ids', [])
+        max_expires_date = None
         for order in orders:
             if order.id in used_ids:
                 continue
@@ -59,12 +60,13 @@ class VipUserInfo(models.Model):
                     if expires_date := order.extra_info.get('expires_date'):
                         expires_date = timezone.datetime.strptime(
                             expires_date, "%Y-%m-%d").date()
-                        if not userinfo.vip_expire_date or \
-                                userinfo.vip_expire_date < expires_date:
-                            userinfo.vip_expire_date = expires_date
+                        if not max_expires_date or \
+                                max_expires_date < expires_date:
+                            max_expires_date = expires_date
                     used_ids.append(order.id)
             else:
                 continue
+        userinfo.vip_expire_date = max_expires_date
         userinfo.vip_order['used_ids'] = used_ids
         userinfo.save()
         return True
@@ -81,4 +83,21 @@ class VipUserInfo(models.Model):
     class Meta:
         abstract = True
         verbose_name = 'UserInfo'
+        verbose_name_plural = verbose_name
+
+
+class ConsumeDayLog(models.Model):
+    """
+    Vip user consume days log
+    """
+    date = models.DateField(
+        verbose_name="Date")
+    # {
+    #     "ids": [1,2,5,99]
+    # }
+    info = models.JSONField(
+        verbose_name="ids")
+
+    class Meta:
+        verbose_name = 'ConsumeDayLog'
         verbose_name_plural = verbose_name

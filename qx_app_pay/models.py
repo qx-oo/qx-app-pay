@@ -57,8 +57,8 @@ class AppReceipt(models.Model):
         verbose_name='Created', default=timezone.now, editable=False)
     last_update_time = models.DateTimeField(
         verbose_name='Last Update Time', default=timezone.now)
-    last_subscription_info = models.JSONField(
-        verbose_name="Subscription Info", default=dict)
+    update_info = models.JSONField(
+        verbose_name="Subscription Server 2 Server Info", default=dict)
     category = models.CharField(
         verbose_name="Platform", max_length=32,
         choices=PAY_PLATFORM
@@ -80,15 +80,28 @@ class AppReceipt(models.Model):
                     category, user_id, receipt, payment_type)
             else:
                 raise TypeError
-            _exists = AppOrder.objects.filter(order_no__in=list(
-                order_list.keys())).values_list('order_no', flat=True)
+            exist_order = AppOrder.objects.filter(order_no__in=list(
+                order_list.keys()))
+            _exists = []
+            update_order = []
+            for e_order in list(exist_order):
+                _exists.append(e_order.order_no)
+                if order := order_list.get(e_order.order_no):
+                    if order['extra_info']['expires_date'] != \
+                            e_order.extra_info['expires_date']:
+                        update_order.append(order)
             orders = [AppOrder(**order) for no, order in order_list.items()
                       if no not in _exists]
+            # create new order
             AppOrder.objects.bulk_create(orders)
+            # update change order
+            for u_order in update_order:
+                AppReceipt.objects.filter(
+                    order_no=u_order['order_no']).update(**u_order)
         try:
-            if orders:
+            if order_list:
                 _orders = list(AppOrder.objects.filter(
-                    order_no__in=[order.order_no for order in orders]))
+                    order_no__in=list(order_list.keys())))
                 orders_callback(user_id, _orders, renew_status)
         except Exception:
             logger.exception('app pay object_callback')
