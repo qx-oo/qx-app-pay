@@ -36,3 +36,10 @@ models.py:
 
     def notification_callback(*args, **kwargs):
         return UserInfo.notification_callback(*args, **kwargs)
+
+urls.py:
+
+    urlpatterns = [
+        path('apple-pay/subscription/', apple_subscription),
+        path('apple-pay/notifications/', apple_notifications),
+    ]

@@ -55,7 +55,8 @@ def apple_subscription_notification(data):
     if status:
         # bid, product_id, purchase_date_ms, transaction_id = ret
         order = AppOrder.objects.filter(
-            related_id=ret['transaction_id'], category='apple_store').first()
+            related_id=ret['receipt_info']['transaction_id'],
+            product__category='apple_store').first()
         if order and order.payment_type == 'appreceipt':
             payment = AppReceipt.objects.filter(
                 id=order.payment_id, user_id=order.user_id).first()
@@ -65,7 +66,8 @@ def apple_subscription_notification(data):
                 'type': ret['notification_type'],
             })
             last_update_time = timezone.datetime.fromtimestamp(
-                int(ret['purchase_date_ms']) // 1000, tz=timezone.utc)
+                int(ret['receipt_info']['purchase_date_ms']) // 1000,
+                tz=timezone.utc)
             payment.last_update_time = last_update_time
             payment.save()
             NOTIFICATION_CALLBACK(order.user_id, ret)

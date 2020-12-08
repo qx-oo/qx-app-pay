@@ -90,7 +90,7 @@ class ApplePay():
         auto_renew = data.get('auto_renew_status')
         if auto_renew is not None:
             auto_renew = bool(auto_renew)
-        data = {
+        ret = {
             "receipt_info": {},
             "prodcut_id": data.get('auto_renew_product_id', ''),
             "notification_type": data.get('notification_type', ''),
@@ -101,10 +101,10 @@ class ApplePay():
             product_id = receipt_info['product_id']
             purchase_date_ms = receipt_info['purchase_date_ms']
             transaction_id = receipt_info['original_transaction_id']
-            data['receipt_info'] = {
+            ret['receipt_info'] = {
                 'bid': bid,
                 'product_id': product_id,
                 'purchase_date_ms': purchase_date_ms,
                 'transaction_id': transaction_id,
             }
-        return False, data
+        return True, ret

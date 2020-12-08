@@ -51,8 +51,6 @@ class VipUserInfo(models.Model):
             if order.product.product_id == apple_vip_product_id:
                 _type = order.extra_info.get('type')
                 is_trial = order.extra_info.get('is_trial', False)
-                userinfo.apple_auto_renew = auto_renew.get(
-                    apple_vip_product_id, False)
                 # every body trial once
                 if userinfo.is_trial and is_trial:
                     continue
@@ -68,6 +66,8 @@ class VipUserInfo(models.Model):
                 continue
         userinfo.vip_expire_date = max_expires_date
         userinfo.vip_order['used_ids'] = used_ids
+        userinfo.apple_auto_renew = auto_renew.get(
+            apple_vip_product_id, False)
         userinfo.save()
         return True
 
