@@ -4,6 +4,16 @@ from rest_framework.permissions import (
 )
 from django.http import JsonResponse
 from rest_framework.decorators import api_view, permission_classes
+try:
+    from drf_yasg.utils import swagger_auto_schema
+except ImportError:
+    def func_none(*args, **kwargs):
+        def _func(func):
+            def _func2(*f_args, **f_kwargs):
+                return func(*f_args, **f_kwargs)
+            return _func2
+        return _func
+    swagger_auto_schema = func_none
 from .serializers import AppleSubscription
 from .utils import (
     apple_subscription_update,
@@ -28,6 +38,9 @@ def apple_notifications(request) -> JsonResponse:
     return JsonResponse(data={}, status=200)
 
 
+@swagger_auto_schema(
+    methods=['post'], request_body=AppleSubscription,
+    responses={200: {}})
 @api_view(['POST'])
 @permission_classes((IsAuthenticated,))
 def apple_subscription(request):
