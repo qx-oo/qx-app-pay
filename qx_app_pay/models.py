@@ -1,3 +1,4 @@
+import typing
 import logging
 from django.db import models, transaction
 from django.utils import timezone
@@ -159,7 +160,7 @@ class AppReceipt(models.Model):
             bid, product_id, purchase_date_ts, user_id)
 
     def get_order_info(self, product, user_id, receipt: dict, bundle_id) -> \
-            (str, dict, float, str):
+            typing.Tuple[str, dict, float, str]:
         """
         Get receipt's order info
         """

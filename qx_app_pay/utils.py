@@ -1,3 +1,4 @@
+import typing
 import logging
 from django.utils import timezone
 from django.utils.module_loading import import_string
@@ -23,7 +24,7 @@ class PaymentException(Exception):
     pass
 
 
-def apple_subscription_update(b64_receipt, user_id) -> (bool, str):
+def apple_subscription_update(b64_receipt, user_id) -> typing.Tuple[bool, str]:
     """
     update apple subscription status
     RECEIPT_ORDERS_CALLBACK(user_id: int, orders: [], renew_status: {}) -> bool
